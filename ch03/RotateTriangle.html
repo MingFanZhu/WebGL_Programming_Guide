@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RotateTriangle</title>
+</head>
+
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+
+    <script src="../lib/cuon-utils.js"></script>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/webgl-debug.js"></script>
+    <script>
+        var vertexShaderSource =
+            `
+            attribute vec4 a_Position;
+            uniform float u_Sin,u_Cos;
+            void main()
+            {
+                gl_Position.x=a_Position.x*u_Cos-a_Position.y*u_Sin;
+                gl_Position.y=a_Position.x*u_Sin+a_Position.y*u_Cos;
+                gl_Position.z=a_Position.z;
+                gl_Position.w=1.0;
+            }
+        `;
+
+
+        var fragmentShaderSource =
+            `
+            void main()
+            {
+                gl_FragColor=vec4(1.0,0.0,0.0,1.0);
+            }
+        `;
+
+        /** @type {HTMLCanvasElement} */
+        var canvas = document.querySelector('#webgl');
+        /** @type {WebGLRenderingContext}*/
+        var gl = getWebGLContext(canvas);
+
+        initShaders(gl, vertexShaderSource, fragmentShaderSource);
+
+        var attributePositionLocation = gl.getAttribLocation(gl.program, 'a_Position');
+        var angle=90/180*Math.PI;
+        var uniformCosPosition=gl.getUniformLocation(gl.program,'u_Cos');
+        var uniformSinPosition=gl.getUniformLocation(gl.program,'u_Sin');
+        gl.uniform1f(uniformCosPosition,Math.cos(angle));
+        gl.uniform1f(uniformSinPosition,Math.sin(angle));
+
+
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+        var g_points = new Float32Array([
+            -0.5, 0.5,
+            0.5, 0.5,
+            0.0, -0.5
+        ]);
+
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, g_points, gl.STATIC_DRAW);
+        gl.vertexAttribPointer(attributePositionLocation, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(attributePositionLocation);
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+    </script>
+</body>
+
+</html>
