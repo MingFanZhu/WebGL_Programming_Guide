@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RotateTranslateTriangle</title>
+</head>
+
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+
+    <script src="../lib/cuon-utils.js"></script>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-matrix.js"></script>
+    <script>
+        var vertexShaderSource =
+        `
+            attribute vec4 a_Position;
+            uniform mat4 u_Model;
+            void main()
+            {
+                gl_Position=u_Model*a_Position;
+            }
+        `;
+
+
+        var fragmentShaderSource =
+        `
+            void main()
+            {
+                gl_FragColor=vec4(1.0,0.0,0.0,1.0);
+            }
+        `;
+
+        /** @type {HTMLCanvasElement} */
+        var canvas = document.querySelector('#webgl');
+        /** @type {WebGLRenderingContext}*/
+        var gl = getWebGLContext(canvas);
+
+        initShaders(gl, vertexShaderSource, fragmentShaderSource);
+
+        var attributePositionLocation = gl.getAttribLocation(gl.program, 'a_Position');
+        var uniformModelPosition = gl.getUniformLocation(gl.program, 'u_Model');
+        var matrix = new Matrix4();
+        //先平移再旋转
+        matrix.setRotate(90.0,0,0,1);//旋转
+        matrix.translate(0.2,0.2,0.0);//乘以平移矩阵
+
+        gl.uniformMatrix4fv(uniformModelPosition,false,matrix.elements);
+
+
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+        var g_points = new Float32Array([
+            -0.5, 0.5,
+            0.5, 0.5,
+            0.0, -0.5
+        ]);
+
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, g_points, gl.STATIC_DRAW);
+        gl.vertexAttribPointer(attributePositionLocation, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(attributePositionLocation);
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+    </script>
+</body>
+
+</html>
