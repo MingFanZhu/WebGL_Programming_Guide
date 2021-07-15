@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TranslateTriangle_Matrix</title>
+    <title>RotateTriangle_Matrix</title>
 </head>
 
 <body>
@@ -13,6 +13,7 @@
     <script src="../lib/cuon-utils.js"></script>
     <script src="../lib/webgl-utils.js"></script>
     <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-matrix.js"></script>
     <script>
         var vertexShaderSource =
         `
@@ -42,13 +43,12 @@
 
         var attributePositionLocation = gl.getAttribLocation(gl.program, 'a_Position');
         var uniformMatrixPosition = gl.getUniformLocation(gl.program, 'u_Matrix');
-        var matrix = new Float32Array([
-            1.5,0.0,0.0,0.0,
-            0.0,1.5,0.0,0.0,
-            0.0,0.0,1.0,0.0,
-            0.0,0.0,0.0,1.0
-        ]);
-        gl.uniformMatrix4fv(uniformMatrixPosition,false,matrix);
+        var matrix = new Matrix4();
+        matrix.setRotate(90.0,0,0,1);
+
+        gl.uniformMatrix4fv(uniformMatrixPosition,false,matrix.elements);
+
+
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
         var g_points = new Float32Array([
