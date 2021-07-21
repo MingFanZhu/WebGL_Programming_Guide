@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>textureQuad</title>
+</head>
+
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+
+    <script src="../lib/cuon-matrix.js"></script>
+
+    <script>
+        var vertexShaderSource =
+            `
+            attribute vec4 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 v_TexCoord;
+
+            void main(){
+                gl_Position=a_Position;
+                v_TexCoord=a_TexCoord;
+            }
+        `;
+
+        var fragmentShaderSource =
+            `
+            precision mediump float;
+            uniform sampler2D u_Sampler;
+            varying vec2 v_TexCoord;
+
+            void main(){
+                gl_FragColor=texture2D(u_Sampler,v_TexCoord);
+            }
+        `;
+
+        /** @type {HTMLCanvasElement} */
+        var canvas = document.querySelector('#webgl');
+        var gl = canvas.getContext('webgl');
+        /** @type {WebGLProgram} */
+        var program = initProgram(gl, vertexShaderSource, fragmentShaderSource);
+        var info = {
+            attributePositionLocation: gl.getAttribLocation(program, 'a_Position'),
+            attributeTexCoordLocation: gl.getAttribLocation(program, 'a_TexCoord'),
+            uniformSamplerLocation: gl.getUniformLocation(program, 'u_Sampler')
+        };
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+        var vertexAndTexCoord = new Float32Array([
+            -0.5, 0.5, 0.0, 1.0,
+            0.5, 0.5, 1.0, 1.0,
+            -0.5, -0.5, 0.0, 0.0,
+            -0.5, -0.5, 0.0, 0.0,
+            0.5, 0.5, 1.0, 1.0,
+            0.5, -0.5, 1.0, 0.0
+        ]);
+        var vertexAndTexCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexAndTexCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexAndTexCoord, gl.STATIC_DRAW);
+        var SIZE = vertexAndTexCoord.BYTES_PER_ELEMENT;
+        gl.vertexAttribPointer(info.attributePositionLocation, 2, gl.FLOAT, false, SIZE * 4, 0);
+        gl.enableVertexAttribArray(info.attributePositionLocation);
+        gl.vertexAttribPointer(info.attributeTexCoordLocation, 2, gl.FLOAT, false, SIZE * 4, SIZE * 2);
+        gl.enableVertexAttribArray(info.attributeTexCoordLocation);
+
+        var img = new Image();
+        img.src = "../resources/sky.jpg";
+        img.onload = function () {
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);//翻转y轴
+            var texture = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0);//开启0号纹理单元
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);//配置纹理参数
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);//配置纹理图像
+            gl.uniform1i(info.uniformSamplerLocation, 0);//将0号纹理传输给取样器
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+
+        //创建着色器程序
+        function initProgram(gl, vertexShaderSource, fragmentShaderSource) {
+            var vertexShader = initShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            var fragmentShader = initShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            var program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+            if (!linked) {
+                var error = gl.getProgramInfoLog(program);
+                console.log('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+                gl.deleteShader(fragmentShader);
+                gl.deleteShader(vertexShader);
+                return null;
+            }
+            gl.useProgram(program);
+            return program;
+        }
+
+        //创建着色器
+        function initShader(gl, type, source) {
+            var shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+            if (!compiled) {
+                var error = gl.getShaderInfoLog(shader);
+                console.log('Failed to compile shader: ' + error);
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+    </script>
+</body>
+
+</html>

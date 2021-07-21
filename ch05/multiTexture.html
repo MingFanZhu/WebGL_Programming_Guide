@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>textureQuad</title>
+</head>
+
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+
+    <script src="../lib/cuon-matrix.js"></script>
+
+    <script>
+        var vertexShaderSource =
+            `
+            attribute vec4 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 v_TexCoord;
+
+            void main(){
+                gl_Position=a_Position;
+                v_TexCoord=a_TexCoord;
+            }
+        `;
+
+        var fragmentShaderSource =
+            `
+            precision mediump float;
+            uniform sampler2D u_Sampler1;
+            uniform sampler2D u_Sampler2;
+            varying vec2 v_TexCoord;
+
+            void main(){
+                vec4 color1=texture2D(u_Sampler1,v_TexCoord);
+                vec4 color2=texture2D(u_Sampler2,v_TexCoord);
+                gl_FragColor=color1*color2;
+            }
+        `;
+
+        /** @type {HTMLCanvasElement} */
+        var canvas = document.querySelector('#webgl');
+        var gl = canvas.getContext('webgl');
+        /** @type {WebGLProgram} */
+        var program = initProgram(gl, vertexShaderSource, fragmentShaderSource);
+        var info = {
+            attributePositionLocation: gl.getAttribLocation(program, 'a_Position'),
+            attributeTexCoordLocation: gl.getAttribLocation(program, 'a_TexCoord'),
+            uniformSampler1Location: gl.getUniformLocation(program, 'u_Sampler1'),
+            uniformSampler2Location: gl.getUniformLocation(program, 'u_Sampler2')
+        };
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+        var vertexAndTexCoord = new Float32Array([
+            -0.5, 0.5, 0.0, 1.0,
+            0.5, 0.5, 1.0, 1.0,
+            -0.5, -0.5, 0.0, 0.0,
+            -0.5, -0.5, 0.0, 0.0,
+            0.5, 0.5, 1.0, 1.0,
+            0.5, -0.5, 1.0, 0.0
+        ]);
+        var vertexAndTexCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexAndTexCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexAndTexCoord, gl.STATIC_DRAW);
+        var SIZE = vertexAndTexCoord.BYTES_PER_ELEMENT;
+        gl.vertexAttribPointer(info.attributePositionLocation, 2, gl.FLOAT, false, SIZE * 4, 0);
+        gl.enableVertexAttribArray(info.attributePositionLocation);
+        gl.vertexAttribPointer(info.attributeTexCoordLocation, 2, gl.FLOAT, false, SIZE * 4, SIZE * 2);
+        gl.enableVertexAttribArray(info.attributeTexCoordLocation);
+
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);//翻转y轴
+
+        var img1 = new Image();
+        img1.src = "../resources/sky.jpg";
+        var img1Loaded = false;
+        img1.onload = loadImg(img1, 0, gl.TEXTURE0, info.uniformSampler1Location);
+
+        var img2 = new Image();
+        img2.src = "../resources/circle.gif";
+        var img2Loaded = false;
+        img2.onload = loadImg(img2, 1, gl.TEXTURE1, info.uniformSampler2Location);
+
+        /**
+         * 纹理单元处理
+         * @param {Image} img 图像
+         * @param {Number} number 纹理单元编号
+         * @param {Number} gl_number webgl中对纹理单元的枚举
+         * @param {WebGLUniformLocation} location webgl中静态变量的起始位置
+         */
+        function loadImg(img, number, gl_number, location, loaded) {
+            var texture = gl.createTexture();
+            gl.activeTexture(gl_number);
+            if(number==0){
+                img1Loaded=true;
+            }else{
+                img2Loaded=true;
+            }
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);//配置纹理参数
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+            gl.uniform1i(location, number);
+
+            if (img1Loaded && img2Loaded) {
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
+        }
+
+        //创建着色器程序
+        function initProgram(gl, vertexShaderSource, fragmentShaderSource) {
+            var vertexShader = initShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            var fragmentShader = initShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            var program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+            if (!linked) {
+                var error = gl.getProgramInfoLog(program);
+                console.log('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+                gl.deleteShader(fragmentShader);
+                gl.deleteShader(vertexShader);
+                return null;
+            }
+            gl.useProgram(program);
+            return program;
+        }
+
+        //创建着色器
+        function initShader(gl, type, source) {
+            var shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+            if (!compiled) {
+                var error = gl.getShaderInfoLog(shader);
+                console.log('Failed to compile shader: ' + error);
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+    </script>
+</body>
+
+</html>
