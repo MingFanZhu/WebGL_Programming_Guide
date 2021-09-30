@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>lookAtTrangles</title>
+</head>
+
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+    <p>帧生成时间：<span id="frameTime">0ms</span></p>
+    <p>帧数：<span id="fps">0fps</span></p>
+    <script src="../lib/cuon-matrix.js"></script>
+    <script>
+        //顶点着色器代码
+        var vertexShaderSource =/*glsl*/`
+            attribute vec4 a_Position;
+            attribute vec4 a_Color;
+            uniform mat4 u_ViewMatrix;
+            uniform mat4 u_ModelMatrix;
+            uniform mat4 u_PerspectiveMatrix;
+
+            varying vec4 v_Color;
+
+            void main(){
+                gl_Position=u_PerspectiveMatrix*u_ViewMatrix*u_ModelMatrix*a_Position;
+                v_Color=a_Color;
+            }
+        `;
+
+        //片元着色器代码
+        var fragmentShaderSource =/*glsl*/`
+            #ifdef GL_ES
+            precision mediump float;
+            #endif
+
+            varying vec4 v_Color;
+
+            void main(){
+                gl_FragColor=v_Color;
+            }
+        `;
+    </script>
+    <script>
+        //创建着色器
+        function initShader(gl, type, source) {
+            var shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+            if (!compiled) {
+                var error = gl.getShaderInfoLog(shader);
+                console.error('Failed to compile shader: ' + error);
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        //创建着色器程序
+        function initProgram(gl, vertexShaderSource, fragmentShaderSource) {
+            var vertexShader = initShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            var fragmentShader = initShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            var program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+            if (!linked) {
+                var error = gl.getProgramInfoLog(program);
+                console.error('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+                gl.deleteShader(fragmentShader);
+                gl.deleteShader(vertexShader);
+                return null;
+            }
+            gl.useProgram(program);
+            return program;
+        }
+    </script>
+    <script>
+        /** @type {HTMLCanvasElement} */
+        var canvas = document.querySelector('#webgl');
+        var gl = canvas.getContext('webgl');
+        gl.enable(gl.DEPTH_TEST);
+        /** @type {WebGLProgram} */
+        var program = initProgram(gl, vertexShaderSource, fragmentShaderSource);
+        var info = {
+            a_Position: gl.getAttribLocation(program, "a_Position"),
+            a_Color: gl.getAttribLocation(program, "a_Color"),
+            u_ViewMatrix: gl.getUniformLocation(program, "u_ViewMatrix"),
+            u_ModelMatrix: gl.getUniformLocation(program, "u_ModelMatrix"),
+            u_PerspectiveMatrix: gl.getUniformLocation(program, "u_PerspectiveMatrix")
+        }
+
+        //传入顶点和颜色数据
+        var vertexColors = new Float32Array([
+            // Vertex coordinates and color
+            0.0, 1.0, -4.0, 0.4, 1.0, 0.4, // The back green one
+            -0.5, -1.0, -4.0, 0.4, 1.0, 0.4,
+            0.5, -1.0, -4.0, 1.0, 0.4, 0.4,
+
+            0.0, 1.0, -2.0, 1.0, 1.0, 0.4, // The middle yellow one
+            -0.5, -1.0, -2.0, 1.0, 1.0, 0.4,
+            0.5, -1.0, -2.0, 1.0, 0.4, 0.4,
+
+            0.0, 1.0, 0.0, 0.4, 0.4, 1.0,  // The front blue one 
+            -0.5, -1.0, 0.0, 0.4, 0.4, 1.0,
+            0.5, -1.0, 0.0, 1.0, 0.4, 0.4,
+        ]);
+        var vertexColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexColors, gl.STATIC_DRAW);
+        var size = vertexColors.BYTES_PER_ELEMENT;
+        gl.vertexAttribPointer(info.a_Position, 3, gl.FLOAT, false, size * 6, 0);
+        gl.enableVertexAttribArray(info.a_Position);
+        gl.vertexAttribPointer(info.a_Color, 3, gl.FLOAT, false, size * 6, size * 3);
+        gl.enableVertexAttribArray(info.a_Color);
+
+        //传入视图矩阵
+        var viewMatrix = new Matrix4();
+        viewMatrix.setLookAt(0, 0, 10, 0, 0, -100, 0, 1, 0);
+        gl.uniformMatrix4fv(info.u_ViewMatrix, false, viewMatrix.elements);
+        var projMatrix = new Matrix4();
+        projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100);
+        gl.uniformMatrix4fv(info.u_PerspectiveMatrix, false, projMatrix.elements);
+
+        var lastFrameTime = new Date();
+        var allTime = 0;
+        var FPSTime = 0;
+        function render() {
+            var time = new Date();
+            var deltTime = time - lastFrameTime;
+            allTime += deltTime;
+            FPSTime += deltTime;
+            lastFrameTime = time;
+            if (FPSTime > 500) {
+                FPSTime = 0;
+                document.querySelector("#frameTime").innerHTML = deltTime + 'ms';
+                document.querySelector("#fps").innerHTML = Math.floor(1000 / deltTime) + 'fps';
+            }
+
+            var modelMatrix = new Matrix4().setRotate((allTime / 100) % 360, 0, 1, 0);
+            gl.uniformMatrix4fv(info.u_ModelMatrix, false, modelMatrix.elements);
+
+            gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+            gl.drawArrays(gl.TRIANGLES, 0, 9);
+            requestAnimationFrame(render);
+        }
+        requestAnimationFrame(render);
+    </script>
+</body>
+
+</html>
